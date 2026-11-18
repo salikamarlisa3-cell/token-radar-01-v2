@@ -8,9 +8,9 @@
 // $5,000,000 TVL edge. Protocols whose token already trades are never ranked; they are listed
 // apart, at the market's own market cap.
 //
-// The implied value is one product of five factors, every one of them read off the snapshot:
+// The implied value is one product of six factors, every one of them read off the snapshot:
 //
-//   implied = tvl_usd x category_multiple x momentum x maturity x breadth
+//   implied = tvl_usd x category_multiple x momentum x maturity x breadth x stability
 //
 //   category_multiple  the median market-cap-to-TVL ratio of the category's own live-token
 //                      protocols in this same snapshot (a category with fewer than three such
@@ -25,6 +25,13 @@
 //                      counts as 300 days.
 //   breadth            1 + 0.04 x min(chains - 1, 5): each extra chain is distribution a launch
 //                      can reach, worth a little, never a lot.
+//   stability          the drawdown guard, new in signal-stack-2: 1 while the week's move is
+//                      no worse than -20%, then a discount growing linearly to at most 25%
+//                      as the loss deepens to -100%. Momentum already prices an ordinary bad
+//                      week; stability prices a collapse — a protocol in freefall would not
+//                      launch into its own chart, and a board that ranks it as if it would
+//                      is ranking a fiction. Only deep drawdowns are touched: a -19% week
+//                      and a +40% week both carry a stability of exactly 1.
 //
 // The components a row carries are rounded to 4 decimals and the implied value is the product
 // of the rounded components, so the dashboard can rebuild the number from the row alone and
@@ -70,6 +77,9 @@ export interface ModelConstants {
   unknown_age_days: number;
   breadth_per_chain: number;
   breadth_max_extra: number;
+  stability_threshold_pct: number;
+  stability_span_pct: number;
+  stability_max_discount: number;
   multiple_min: number;
   multiple_max: number;
   multiple_min_peers: number;
@@ -85,13 +95,16 @@ export const MODEL: ModelConstants = {
   unknown_age_days: 300,
   breadth_per_chain: 0.04,
   breadth_max_extra: 5,
+  stability_threshold_pct: 20,
+  stability_span_pct: 80,
+  stability_max_discount: 0.25,
   multiple_min: 0.03,
   multiple_max: 2.5,
   multiple_min_peers: 3,
 };
 
 /** The model's version label: the dashboard names it. */
-export const MODEL_VERSION = 'signal-stack-1';
+export const MODEL_VERSION = 'signal-stack-2';
 
 /** How many live-token protocols the dashboard's Already trading view carries, by market cap. */
 export const LIVE_ROWS = 30;
@@ -119,6 +132,7 @@ export interface BoardRow {
     momentum_multiplier: number;
     maturity_multiplier: number;
     breadth_multiplier: number;
+    stability_multiplier: number;
   };
   signal: {
     score: number;
@@ -151,6 +165,7 @@ export interface RadarRow {
   momentum_multiplier: number;
   maturity_multiplier: number;
   breadth_multiplier: number;
+  stability_multiplier: number;
   signal_score: number;
   signal_tier: string;
   signal_parts: { propensity: number; propensity_pts: number; seasoning_pts: number; momentum_pts: number; scale_pts: number; breadth_pts: number };
@@ -300,7 +315,7 @@ export function valueFactors(
   multiples: Map<string, { multiple: number; peers: number }>,
   globalMultiple: number,
   model: ModelConstants = MODEL,
-): { implied: number; categoryMultiple: number; categoryPeers: number; momentumMult: number; maturityMult: number; breadthMult: number; age: number | null } {
+): { implied: number; categoryMultiple: number; categoryPeers: number; momentumMult: number; maturityMult: number; breadthMult: number; stabilityMult: number; age: number | null } {
   const age = ageDays(asOf, p.listed_at);
   const entry = multiples.get(p.category ?? '(uncategorised)');
   const categoryMultiple = entry === undefined ? globalMultiple : entry.multiple;
@@ -310,8 +325,10 @@ export function valueFactors(
   const ageForModel = age ?? model.unknown_age_days;
   const maturityMult = round4(model.maturity_base + model.maturity_span * (1 - Math.exp(-Math.max(ageForModel, 0) / model.maturity_tau_days)));
   const breadthMult = round4(1 + model.breadth_per_chain * Math.min(Math.max(p.chains.length - 1, 0), model.breadth_max_extra));
-  const implied = Math.max(1, Math.round(p.tvl_usd * categoryMultiple * momentumMult * maturityMult * breadthMult));
-  return { implied, categoryMultiple, categoryPeers, momentumMult, maturityMult, breadthMult, age };
+  const drawdown = clamp((-(p.change_7d ?? 0) - model.stability_threshold_pct) / model.stability_span_pct, 0, 1);
+  const stabilityMult = round4(1 - model.stability_max_discount * drawdown);
+  const implied = Math.max(1, Math.round(p.tvl_usd * categoryMultiple * momentumMult * maturityMult * breadthMult * stabilityMult));
+  return { implied, categoryMultiple, categoryPeers, momentumMult, maturityMult, breadthMult, stabilityMult, age };
 }
 
 /** The launch signal's five parts and its tier: stated on the dashboard, never a rank input. */
@@ -499,6 +516,7 @@ export function buildBoard(snapshot: Snapshot, model: ModelConstants = MODEL): B
       momentum_multiplier: s.f.momentumMult,
       maturity_multiplier: s.f.maturityMult,
       breadth_multiplier: s.f.breadthMult,
+      stability_multiplier: s.f.stabilityMult,
     },
     signal: {
       score: s.signal.score,
@@ -551,6 +569,7 @@ export function radarRow(row: BoardRow): RadarRow {
     momentum_multiplier: row.model.momentum_multiplier,
     maturity_multiplier: row.model.maturity_multiplier,
     breadth_multiplier: row.model.breadth_multiplier,
+    stability_multiplier: row.model.stability_multiplier,
     signal_score: row.signal.score,
     signal_tier: row.signal.tier,
     signal_parts: {

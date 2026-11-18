@@ -1,8 +1,8 @@
 # token-radar-01
 
 [![make.fun · token-radar-01](https://make.fun/badge/token-radar-01.svg)](https://make.fun/bounty/token-radar-01?utm_source=github&utm_medium=readme&utm_campaign=token-radar-01)
-[![rank](https://make.fun/badge/token-radar-01/salikamarlisa3-cell/token-radar-01/rank.svg)](https://make.fun/bounty/token-radar-01/leaderboard?utm_source=github&utm_medium=readme&utm_campaign=token-radar-01)
-[![reward](https://make.fun/badge/token-radar-01/salikamarlisa3-cell/token-radar-01/reward.svg)](https://make.fun/bounty/token-radar-01?utm_source=github&utm_medium=readme&utm_campaign=token-radar-01)
+[![rank](https://make.fun/badge/token-radar-01/salikamarlisa3-cell/token-radar-01-v2/rank.svg)](https://make.fun/bounty/token-radar-01/leaderboard?utm_source=github&utm_medium=readme&utm_campaign=token-radar-01)
+[![reward](https://make.fun/badge/token-radar-01/salikamarlisa3-cell/token-radar-01-v2/reward.svg)](https://make.fun/bounty/token-radar-01?utm_source=github&utm_medium=readme&utm_campaign=token-radar-01)
 
 A token launch radar: a Node 22 program (standard library only) that reads the sealed
 DefiLlama protocol snapshot, ranks every qualifying pre-token protocol by the value a token
@@ -21,9 +21,9 @@ the same board), `dashboard/` (the page), `screenshots/`, and `dossier.json` (bu
 `vendor/makefun-board.ts`, the scorer's own library). Two runs over the same snapshot write
 the same bytes.
 
-## The model (lib/model.ts, version signal-stack-1)
+## The model (lib/model.ts, version signal-stack-2)
 
-`implied = TVL x category multiple x momentum x maturity x breadth`
+`implied = TVL x category multiple x momentum x maturity x breadth x stability`
 
 - **Category multiple** — the median market-cap-to-TVL ratio of the category's own live-token
   protocols in the same snapshot (categories with fewer than 3 priced peers take the
@@ -31,6 +31,11 @@ the same bytes.
 - **Momentum** — 1 + clamp(7-day TVL change, -50%, +100%) x 0.6.
 - **Maturity** — 0.75 + 0.45 x (1 - exp(-age_days / 540)); an unrecorded age counts as 300 days.
 - **Breadth** — 1 + 0.04 per extra chain, up to 5.
+- **Stability** — the drawdown guard, new in signal-stack-2: 1 while the week's move is no
+  worse than -20%, then a discount growing linearly to at most 25% as the loss deepens to
+  -100%. Momentum already prices an ordinary bad week; stability prices a collapse — a
+  protocol in freefall would not launch into its own chart, and the board no longer ranks
+  it as if it would. Every other row's value is untouched.
 
 The board ranks all 198 protocols the snapshot records with no token of their own, excluding
 wrapped, staked and bridged products of tokens that already trade (their launch is the parent

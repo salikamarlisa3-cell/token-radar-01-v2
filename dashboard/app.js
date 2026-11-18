@@ -58,7 +58,7 @@
   // The board's own arithmetic, rebuilt in the page: a detail view shows this product beside the
   // value board.json carries, so a reader can see the two agree.
   function impliedOf(row) {
-    var v = row.tvl_usd * row.category_multiple * row.momentum_multiplier * row.maturity_multiplier * row.breadth_multiplier;
+    var v = row.tvl_usd * row.category_multiple * row.momentum_multiplier * row.maturity_multiplier * row.breadth_multiplier * row.stability_multiplier;
     return Math.max(1, Math.round(v));
   }
 
@@ -246,14 +246,15 @@
     var sec = el('section', 'section');
     kid(sec, el('h2', null, 'How the radar prices a launch that has not happened'));
     var p1 = kid(sec, el('p'));
-    p1.innerHTML = 'Every implied value on this board is one product of five factors, each read off the sealed snapshot itself — no hand-kept list of names, no outside price feed. Open any protocol and the page rebuilds its number from the row\'s own factors, beside the number <b>board.json</b> carries.';
-    kid(sec, el('div', 'formula', 'implied value  =  TVL  x  category multiple  x  momentum  x  maturity  x  breadth'));
+    p1.innerHTML = 'Every implied value on this board is one product of six factors, each read off the sealed snapshot itself — no hand-kept list of names, no outside price feed. Open any protocol and the page rebuilds its number from the row\'s own factors, beside the number <b>board.json</b> carries.';
+    kid(sec, el('div', 'formula', 'implied value  =  TVL  x  category multiple  x  momentum  x  maturity  x  breadth  x  stability'));
     var list = kid(sec, el('ul'));
     [
       ['Category multiple', 'the median market-cap-to-TVL ratio of the category\'s own live-token protocols in this same snapshot (' + D.global_multiple + ' snapshot-wide). A lending market is priced the way lending markets with tokens are priced here. Categories with fewer than ' + D.model.multiple_min_peers + ' priced peers take the snapshot-wide median; every multiple is clamped to [' + D.model.multiple_min + ', ' + D.model.multiple_max + '].'],
       ['Momentum', '1 + clamp(7-day TVL change, ' + D.model.momentum_floor_pct + '%, +' + D.model.momentum_cap_pct + '%) x ' + D.model.momentum_weight + '. Growth counts, one week\'s spike is capped.'],
       ['Maturity', D.model.maturity_base + ' + ' + D.model.maturity_span + ' x (1 - exp(-age / ' + D.model.maturity_tau_days + ' days)): a record that has survived longer supports more of its peer multiple. An unrecorded age counts as ' + D.model.unknown_age_days + ' days.'],
       ['Breadth', '1 + ' + D.model.breadth_per_chain + ' per extra chain, up to ' + D.model.breadth_max_extra + ': distribution a launch can reach on day one.'],
+      ['Stability (new in signal-stack-2)', 'the drawdown guard: 1 while the week\'s move is no worse than -' + D.model.stability_threshold_pct + '%, then a discount growing to at most ' + Math.round(D.model.stability_max_discount * 100) + '% as the loss deepens. Momentum prices an ordinary bad week; stability prices a collapse — a protocol in freefall would not launch into its own chart.'],
       ['The signal (0-100)', 'never moves the rank. It scores how strongly the record reads as a launch in the making: the share of the category that already has a token (30), time tracked with no token, peaking rather than plateauing (20), 7-day momentum (20), scale (20) and chain breadth (10). 65 and up reads Farm now.'],
     ].forEach(function (item) {
       var li = kid(list, el('li'));
@@ -320,6 +321,7 @@
       ['Momentum (7d ' + (fmtPct(row.change_7d) || 'n/a') + ')', fmtMult(row.momentum_multiplier)],
       ['Maturity (' + fmtAge(row.age_days) + ' tracked)', fmtMult(row.maturity_multiplier)],
       ['Breadth (' + row.chains.length + ' chain' + (row.chains.length === 1 ? '' : 's') + ')', fmtMult(row.breadth_multiplier)],
+      ['Stability (drawdown guard' + (row.stability_multiplier < 1 ? ': 7d loss beyond −20%' : ': no deep drawdown') + ')', fmtMult(row.stability_multiplier)],
     ].forEach(function (kv) {
       var line = kid(fac, el('div', 'kv'));
       kid(line, el('span', 'k', kv[0]));
@@ -327,7 +329,7 @@
     });
     var check = kid(fac, el('div', 'check'));
     var rebuilt = impliedOf(row);
-    check.appendChild(document.createTextNode('page check: ' + fmtFull(row.tvl_usd) + ' x ' + row.category_multiple + ' x ' + row.momentum_multiplier + ' x ' + row.maturity_multiplier + ' x ' + row.breadth_multiplier + ' = '));
+    check.appendChild(document.createTextNode('page check: ' + fmtFull(row.tvl_usd) + ' x ' + row.category_multiple + ' x ' + row.momentum_multiplier + ' x ' + row.maturity_multiplier + ' x ' + row.breadth_multiplier + ' x ' + row.stability_multiplier + ' = '));
     kid(check, el('b', null, fmtFull(rebuilt) + (rebuilt === row.implied_value_usd ? ' — matches board.json' : ' — differs from board.json')));
 
     var sig = kid(right, el('div', 'card'));
