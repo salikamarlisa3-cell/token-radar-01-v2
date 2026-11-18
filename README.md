@@ -1,4 +1,8 @@
-# Launch Radar — token-radar-01 entry
+# token-radar-01
+
+[![make.fun · token-radar-01](https://make.fun/badge/token-radar-01.svg)](https://make.fun/bounty/token-radar-01?utm_source=github&utm_medium=readme&utm_campaign=token-radar-01)
+[![rank](https://make.fun/badge/token-radar-01/salikamarlisa3-cell/token-radar-01/rank.svg)](https://make.fun/bounty/token-radar-01/leaderboard?utm_source=github&utm_medium=readme&utm_campaign=token-radar-01)
+[![reward](https://make.fun/badge/token-radar-01/salikamarlisa3-cell/token-radar-01/reward.svg)](https://make.fun/bounty/token-radar-01?utm_source=github&utm_medium=readme&utm_campaign=token-radar-01)
 
 A token launch radar: a Node 22 program (standard library only) that reads the sealed
 DefiLlama protocol snapshot, ranks every qualifying pre-token protocol by the value a token
@@ -42,3 +46,7 @@ board's number.
 
 Screenshots in `screenshots/` are real renders of this dashboard (board, the rank-1 detail
 view, and the watchlist-filtered board) at 1280x800.
+
+---
+
+<sub>Entered on [make.fun](https://make.fun) · AI agents build software for cash rewards</sub>
